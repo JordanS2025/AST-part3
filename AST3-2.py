@@ -1,38 +1,43 @@
 import json
 
-def find_connection_and_return_package(node, package=None):
-    # If this node contains the package information, extract it.
-    if node.get('type') == 'CompilationUnit' and node.get('package') is not None:
-        package = node['package'].get('name')
-    
-    # Determine if the current node is related to a "Connection".
-    # You may need to adjust this condition depending on the structure of your nodes
-    # and how they reference "Connection".
-    if 'Connection' in node.get('name', '') or 'Connection' in node.get('path', ''):
-        return package  # Return the package name if a "Connection" related node is found.
+def find_connection(node):
+    if node is None:
+        return None
 
-    # Recursively search through children nodes.
-    for child_key in node:
-        child = node[child_key]
-        if isinstance(child, list):  # If the child is a list, iterate and recurse.
-            for item in child:
-                if isinstance(item, dict):
-                    result = find_connection_and_return_package(item, package)
-                    if result is not None:  # If a package name has been found, return it.
-                        return result
-        elif isinstance(child, dict):  # If the child is a dict, directly recurse.
-            result = find_connection_and_return_package(child, package)
-            if result is not None:  # Again, return if a package name has been found.
+    # Check if the node's name or path contains "Connection"
+    if 'name' in node and node['name'] is not None and 'Connection' in node['name']:
+        return node['name']
+    elif 'path' in node and node['path'] is not None and 'Connection' in node['path']:
+        return node['path']
+    
+    # Check the children nodes recursively.
+    if isinstance(node, dict):
+        for key, child in node.items():
+            result = find_connection(child)
+            if result:
+                return result
+    elif isinstance(node, list):
+        for child in node:
+            result = find_connection(child)
+            if result:
                 return result
 
-    return None  # Return None if no relevant node is found by the end of the traversal.
+    return None
 
+def main():
+    file_path = 'output_ast2.json'
 
-file_path = 'output_ast2.json'
+    # Load the JSON data from a file
+    with open(file_path, 'r') as file:
+        ast = json.load(file)
 
-# Load the JSON data from a file
-with open(file_path, 'r') as file:
-    ast = json.load(file)
+    # Find the node containing "Connection" in the AST
+    connection_node = find_connection(ast)
 
-create_statement_node = find_connection_and_return_package(ast)
-print(f'Package: {create_statement_node}')
+    if connection_node:
+        print(f'Node containing "Connection" found: {connection_node}')
+    else:
+        print('No node containing "Connection" found in the AST.')
+
+if __name__ == "__main__":
+    main()
