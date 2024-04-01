@@ -1,28 +1,65 @@
 import json
+from g4f.client import Client
+client = Client()
 
-def find_connection(node):
-    if node is None:
+
+def find_create_statement(node, path=''):
+    # Ensure node is a dictionary or list before proceeding
+    if not isinstance(node, (dict, list)):
         return None
 
-    # Check if the node's name or path contains "Connection"
-    if 'name' in node and node['name'] is not None and 'Connection' in node['name']:
-        return node['name']
-    elif 'path' in node and node['path'] is not None and 'Connection' in node['path']:
-        return node['path']
-    
-    # Check the children nodes recursively.
     if isinstance(node, dict):
+        # Check for MethodInvocation with createStatement member
+        if node.get('type') == 'MethodInvocation' and node.get('member') == 'createStatement':
+            # Storing value if they are found in the AST
+            member = 'createStatement'
+            Domain = 'Connections'
+            # Build the descriptive string for createStatement
+            create_statement_str = f"MethodInvocation: createStatement found at {path}"
+            # Assuming createStatement implies a Connection, build its description
+            connection_str = f"Associated Connection object assumed at {path}"
+            return create_statement_str, connection_str, member, Domain 
+
+        # Recursively check dictionary children, updating path for accurate location
         for key, child in node.items():
-            result = find_connection(child)
+            new_path = f"{path}/{key}" if path else key
+            result = find_create_statement(child, new_path)
             if result:
                 return result
     elif isinstance(node, list):
-        for child in node:
-            result = find_connection(child)
+        # Recursively check list items, updating path for index
+        for index, child in enumerate(node):
+            new_path = f"{path}/{index}"
+            result = find_create_statement(child, new_path)
             if result:
                 return result
 
     return None
+
+messages = [
+    {"role": "system",
+     "content": "You are attempting to classify the inputted description into one of the 31 labels based off of the similarity to it."},
+    {"role": "system",
+     "content": "As you guess this, your final response should only be one concise paragraph with the label chosen and why."},
+    {"role": "system",
+     "content": "Answer in the format of: Label: given label of this description"
+                                        "Reason: reason why this label was chosen"}
+]
+
+def ask_gpt(classname, domainname):
+    # Construct the prompt with the object description and option descriptions
+    prompt = "Can you provide a "
+    prompt += f" summary of this function: {classname}\n"
+    prompt += " that is found "
+    prompt += f"in the: {domainname}\n"
+    prompt += f"class? Can you also make the summary a short paragraph?"
+    messages.append({"role": "user", "content": prompt})
+    response = client.chat.completions.create(
+        model="gpt-4-turbo",
+        messages=messages,
+        stream=True
+    )
+    return response
 
 def main():
     file_path = 'output_ast2.json'
@@ -31,13 +68,24 @@ def main():
     with open(file_path, 'r') as file:
         ast = json.load(file)
 
-    # Find the node containing "Connection" in the AST
-    connection_node = find_connection(ast)
+    # Find createStatement and its Connection, capturing their descriptions
+    result = find_create_statement(ast)
 
-    if connection_node:
-        print(f'Node containing "Connection" found: {connection_node}')
+    if result:
+        create_statement_str, connection_str, member, Domain = result
+        print('A "createStatement" method invocation connected to a "Connection" object was found in the AST.')
+        print(create_statement_str)
+        print(connection_str)
+        print ( '------------')
+        gpt_response = ask_gpt(member, Domain)
+        counter = 0
+        answer = ""
+        for chunk in gpt_response:
+            if chunk.choices[0].delta.content:
+                answer += (chunk.choices[0].delta.content.strip('*') or "")
+        print(answer)
     else:
-        print('No node containing "Connection" found in the AST.')
+        print('No "createStatement" method invocation connected to a "Connection" object found in the AST.')
 
 if __name__ == "__main__":
     main()
