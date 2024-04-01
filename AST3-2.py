@@ -62,7 +62,7 @@ def ask_gpt(classname, domainname):
     return response
 
 def main():
-    file_path = 'output_ast2.json'
+    file_path = '/Users/bignola/Documents/GitHub/AST-part3/output_ast2.json'
 
     # Load the JSON data from a file
     with open(file_path, 'r') as file:
