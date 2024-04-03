@@ -53,7 +53,7 @@ def calculate_similarity(text):
     return domain_similarity
 
 
-# Javax.sql description
+# Javax.sql.Connection description
 description = "A connection (session) with a specific database."
 # Labels and their descriptions
 options = {
